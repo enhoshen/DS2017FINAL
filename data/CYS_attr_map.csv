@@ -1,0 +1,38 @@
+station	
+station_id	sid
+lat	lat
+long	long
+current_dockcount	dcnt
+weather	
+Date	wdate
+Max_Temperature_F	maxt
+Mean_Temperature_F	meant
+Min_TemperatureF	mint
+Max_Dew_Point_F	maxdp
+MeanDew_Point_F	meandp
+Min_Dewpoint_F	mindp
+Max_Humidity	maxh
+Mean_Humidity	meanh
+Min_Humidity	minh
+Max_Sea_Level_Pressure_In	maxslp
+Mean_Sea_Level_Pressure_In	meanslp
+Min_Sea_Level_Pressure_In	minslp
+Max_Visibility_Miles	maxv
+Mean_Visibility_Miles	meanv
+Min_Visibility_Miles	minv
+Max_Wind_Speed_MPH	maxws
+Mean_Wind_Speed_MPH	meanws
+Max_Gust_Speed_MPH	maxgs
+Precipitation_In	precip
+Events	events
+trip	
+trip_id	tid
+starttime	sdate
+stoptime	edate
+bikeid	bid
+tripduration	duration
+from_station_id	ssid
+to_station_id	esid
+usertype	type
+gender	gender
+birthyear	birth
