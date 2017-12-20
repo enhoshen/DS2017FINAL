@@ -66,9 +66,9 @@ class dataloader () :
         self.tp['edate']=self.tp['edate'].apply(str2time,args=('date',) )
     def store(self):
         self.wt['wdate']=self.wt['wdate'].apply(time2str )
-        self.tp['stime']=self.tp['sdate'].apply(time2str )
+        self.tp['stime']=self.tp['stime'].apply(time2str )
         self.tp['sdate']=self.tp['sdate'].apply(time2str )
-        self.tp['etime']=self.tp['edate'].apply(time2str )
+        self.tp['etime']=self.tp['etime'].apply(time2str )
         self.tp['edate']=self.tp['edate'].apply(time2str )
  
         self.wt.to_csv(os.path.join(self.dir,'parsedweather.csv'))        
