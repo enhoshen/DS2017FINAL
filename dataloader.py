@@ -4,27 +4,7 @@ import sys , os
 import getpass
 import pandas as pd
 from functools import reduce
-def str2time ( s , dtype='date'):
-    s=s.split(' ')
-    if dtype == 'date':
-        d=  s[0].split('/')
-        return [int(d[2]),int(d[0]),int(d[1])]
-    elif dtype == 'time':
-        t = s[1].split(':')
-        return [int(t[0]),int(t[1])]
-def timesel ( df ,column,  start , end):
-    tempdf = df
-    s = reduce( lambda x, y : 100*x+y , start)
-    e = reduce( lambda x, y : 100*x+y , end)
-    l = len(start)
-    tempdf =tempdf[ tempdf[column].apply(lambda x : reduce(lambda a,b: 100*a+b, x[:l] )>= s) ]
-    if len(tempdf)==0:
-        return
-    l = len(end)
-    tempdf =tempdf[ tempdf[column].apply(lambda x : reduce(lambda a,b: 100*a+b, x[:l] )<= e) ]
-    return tempdf
-def timesel ( df , column, time ):
-    return df [ df[column].apply( lambda x : reduce(lambda a,b: a and b , [x[i]==v for i,v in enumerate(time)]) ) ]
+from timehelper import *
 class dataloader () :
     def __init__(self):
         #self.getkaggleinfo()
@@ -43,10 +23,16 @@ class dataloader () :
                     if chunk:
                         f.write(chunk)      
 
-    def dataload(self):
-        self.tp = pd.read_csv(self.filepaths['trip.csv']).drop  ( self.attrdrops['trip'],axis=1)
-        self.st = pd.read_csv(self.filepaths['station.csv']).drop(self.attrdrops['station'],axis=1)
-        self.wt = pd.read_csv(self.filepaths['weather.csv']).drop(self.attrdrops['weather'],axis=1)
+    def dataload(self,restore='False'):
+        if restore == 'False':
+            self.tp = pd.read_csv(self.filepaths['trip.csv']).drop  ( self.attrdrops['trip'],axis=1)
+            self.st = pd.read_csv(self.filepaths['station.csv']).drop(self.attrdrops['station'],axis=1)
+            self.wt = pd.read_csv(self.filepaths['weather.csv']).drop(self.attrdrops['weather'],axis=1)
+        elif restore == 'True':
+            #self.tp = pd.read_csv(self.filepaths['parsedtrip.csv'])
+            #self.st = pd.read_csv(self.filepaths['parsedstation.csv'])
+            self.wt = pd.read_csv(self.filepaths['parsedweather.csv'])
+            
     def attrmapload(self):
         self.attrmap = {}
         with open ( self.attrmapfile) as f:
@@ -78,17 +64,20 @@ class dataloader () :
         self.tp['sdate']=self.tp['sdate'].apply(str2time,args=('date',) )
         self.tp['etime']=self.tp['edate'].apply(str2time,args=('time',) )
         self.tp['edate']=self.tp['edate'].apply(str2time,args=('date',) )
-        '''
-        self.wt['wdate']=pd.to_datetime(self.wt['wdate'])
-        self.tp['sdate']=pd.to_datetime(self.tp['sdate'])
-        self.tp['edate']=pd.to_datetime(self.tp['edate'])
-        '''
+    def store(self):
+        self.wt['wdate']=self.wt['wdate'].apply(time2str )
+        self.tp['stime']=self.tp['sdate'].apply(time2str )
+        self.tp['sdate']=self.tp['sdate'].apply(time2str )
+        self.tp['etime']=self.tp['edate'].apply(time2str )
+        self.tp['edate']=self.tp['edate'].apply(time2str )
+ 
+        self.wt.to_csv(os.path.join(self.dir,'parsedweather.csv'))        
 class SFbay ( dataloader ):
     def __init__(self):
         dataloader.__init__(self)
         self.dir = os.path.join(self.datasetDir,'SFBAY')
         self.attrmapfile = os.path.join(self.datasetDir,'SF_attr_map.csv')
-        self.filenames = ['weather.csv','trip.csv','status.csv','station.csv']
+        self.filenames = ['weather.csv','trip.csv','status.csv','station.csv','parsedweather.csv','parsedtrip.csv','parsedstation.csv']
         self.filepaths = { x:os.path.join(self.dir, x ) for x in self.filenames}
         # unused attributes
         self.attrdrops = {'weather':['cloud_cover','wind_dir_degrees','zip_code'], 
@@ -117,32 +106,16 @@ class CYShare ( dataloader ):
         self.data_url = [self.base_url+x for x in self.filenames]
     def download (self):
         self.kaggledownload(self.dir)
-
-## The direct link to the Kaggle data set
-#data_url = 'http://www.kaggle.com/c/digit-recognizer/download/train.csv'
-#
-## The local path where the data set is saved.
-#local_filename = "train.csv"
-#
-## Kaggle Username and Password
-#kaggle_info = {'UserName': "my_username", 'Password': "my_password"}
-#
-## Attempts to download the CSV file. Gets rejected because we are not logged in.
-#r = requests.get(data_url)
-#
-## Login to Kaggle and retrieve the data.
-#r = requests.post(r.url, data = kaggle_info, prefetch = False)
-#
-## Writes the data to a local file one chunk at a time.
-#f = open(local_filename, 'w')
-#for chunk in r.iter_content(chunk_size = 512 * 1024): # Reads 512KB at a time into memory
-#    if chunk: # filter out keep-alive new chunks
-#        f.write(chunk)
-#f.close()         
+    def dataparse(self):
+        self.loadnrename()
+        self.timeparse()
+         
 
 if __name__ == '__main__':
     sf = SFbay()
     sf.dataparse()
     print(sf.wt['wdate'])
-    t = timesel(sf.wt,'wdate',[2013,10])
-    print(t['wdate'])
+    sf.store()
+    sf.dataload('True')
+    print(sf.wt['wdate'])
+    print(sf.wt['wdate'][0])
