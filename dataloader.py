@@ -81,11 +81,7 @@ class SFbay ( dataloader ):
         self.data_url = [self.base_url+x for x in self.filenames]
     def download (self):
         self.kaggledownload(self.dir)
-    def dataparse(self):
-        self.loadnrename()
-        self.timeparse()
-        
-        return 
+     
 class CYShare ( dataloader ):
     def __init__(self):
         dataloader.__init__(self)
@@ -100,11 +96,6 @@ class CYShare ( dataloader ):
         self.data_url = [self.base_url+x for x in self.filenames]
     def download (self):
         self.kaggledownload(self.dir)
-    def dataparse(self):
-        self.loadnrename()
-        self.timeparse()
-         
-
 if __name__ == '__main__':
     sf = SFbay()
     sf.dataparse()
