@@ -8,10 +8,8 @@ def str2time ( s , dtype='date'):
     elif dtype == 'time':
         t = s[1].split(':')
         return [int(t[0]),int(t[1])]
-def time2str ( l ):
-    return reduce( lambda x,y : x+','+y , l)
 def parsedstr2time ( s ):
-    s=s.split(',')
+    s=s[1:-1].split(', ')
     return list(map(int,s))
 def timesel ( df ,column,  start , end):
     tempdf = df

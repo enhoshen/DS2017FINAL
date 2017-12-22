@@ -8,7 +8,8 @@ from timehelper import *
 class dataloader () :
     def __init__(self):
         #self.getkaggleinfo()
-        self.datasetDir = './data' 
+        self.datasetDir = './data'
+        self.usedfiles = {'tp':'trip.csv','st':'station.csv','wt':'weather.csv'}
     def getkaggleinfo(self):
         self.kaggle_info ={}
         self.kaggle_info['UserName']=input("enter your kaggle account ")
@@ -23,16 +24,15 @@ class dataloader () :
                     if chunk:
                         f.write(chunk)      
 
-    def dataload(self,restore='False'):
-        if restore == 'False':
-            self.tp = pd.read_csv(self.filepaths['trip.csv']).drop  ( self.attrdrops['trip'],axis=1)
-            self.st = pd.read_csv(self.filepaths['station.csv']).drop(self.attrdrops['station'],axis=1)
-            self.wt = pd.read_csv(self.filepaths['weather.csv']).drop(self.attrdrops['weather'],axis=1)
-        elif restore == 'True':
-            #self.tp = pd.read_csv(self.filepaths['parsedtrip.csv'])
-            #self.st = pd.read_csv(self.filepaths['parsedstation.csv'])
-            self.wt = pd.read_csv(self.filepaths['parsedweather.csv'])
-            
+    def dataload(self,restore=False):
+        if restore == False:
+            self.dt = { d:pd.read_csv(self.filepaths[f]).drop(self.attrdrops[f],axis=1) for d,f in self.usedfiles.items()}
+            self.attrmapload()
+            self.attrrename()
+            self.timeparse()
+        else :
+            self.dt = { d:pd.read_csv(self.parsedfilepaths['parsed'+f]) for d,f in self.usedfiles.items() }
+            self.timeparse(restore=True)
     def attrmapload(self):
         self.attrmap = {}
         with open ( self.attrmapfile) as f:
@@ -50,39 +50,33 @@ class dataloader () :
             self.attrmap[cur_table]=cur_map
         return self.attrmap
     def attrrename(self):
-        self.st=self.st.rename(columns=self.attrmap['station'],)
-        self.tp=self.tp.rename(columns=self.attrmap['trip'],)
-        self.wt=self.wt.rename(columns=self.attrmap['weather'],)
-    def loadnrename(self):
-        self.dataload()
-        self.attrmapload()
-        self.attrrename()
-    def timeparse(self):
-     
-        self.wt['wdate']=self.wt['wdate'].apply(str2time,args=('date',) )
-        self.tp['stime']=self.tp['sdate'].apply(str2time,args=('time',) )
-        self.tp['sdate']=self.tp['sdate'].apply(str2time,args=('date',) )
-        self.tp['etime']=self.tp['edate'].apply(str2time,args=('time',) )
-        self.tp['edate']=self.tp['edate'].apply(str2time,args=('date',) )
+        self.dt = { d: self.dt[d].rename(columns=self.attrmap[f.split('.csv')[0] ],) for d,f in self.usedfiles.items()}
+    def timeparse(self,restore=False):
+        table = {'wt':[('wdate','wdate')] , 
+                 'tp':[ ('stime','sdate'),('sdate','sdate'),('etime','edate'),('edate','edate') ] }
+        if restore == True:
+            for x , i in table.items():
+                for attr in i:
+                    self.dt[x][attr[0]] = self.dt[x][attr[0]].apply(parsedstr2time) 
+        else:
+           for x,i in table.items():
+                for attr in i:
+                    self.dt[x][attr[0]]= self.dt[x][attr[1]].apply(str2time,args=( attr[0][1:], ))
     def store(self):
-        self.wt['wdate']=self.wt['wdate'].apply(time2str )
-        self.tp['stime']=self.tp['stime'].apply(time2str )
-        self.tp['sdate']=self.tp['sdate'].apply(time2str )
-        self.tp['etime']=self.tp['etime'].apply(time2str )
-        self.tp['edate']=self.tp['edate'].apply(time2str )
- 
-        self.wt.to_csv(os.path.join(self.dir,'parsedweather.csv'))        
+        for d,f in self.usedfiles.items():
+            self.dt[d].to_csv(os.path.join(self.dir,'parsed'+f), index= False )
 class SFbay ( dataloader ):
     def __init__(self):
         dataloader.__init__(self)
         self.dir = os.path.join(self.datasetDir,'SFBAY')
         self.attrmapfile = os.path.join(self.datasetDir,'SF_attr_map.csv')
-        self.filenames = ['weather.csv','trip.csv','status.csv','station.csv','parsedweather.csv','parsedtrip.csv','parsedstation.csv']
+        self.filenames = ['weather.csv','trip.csv','status.csv','station.csv']
         self.filepaths = { x:os.path.join(self.dir, x ) for x in self.filenames}
+        self.parsedfilepaths = {'parsed'+x:os.path.join(self.dir,'parsed'+x) for x in self.filenames }
         # unused attributes
-        self.attrdrops = {'weather':['cloud_cover','wind_dir_degrees','zip_code'], 
-                          'trip':['start_station_name','end_station_name','zip_code'],
-                          'station':['name','city','installation_date',]  }
+        self.attrdrops = {'weather.csv':['cloud_cover','wind_dir_degrees','zip_code'], 
+                          'trip.csv':['start_station_name','end_station_name','zip_code'],
+                          'station.csv':['name','city','installation_date',]  }
         self.base_url ='https://www.kaggle.com/benhamner/sf-bay-area-bike-share/downloads/' 
         self.data_url = [self.base_url+x for x in self.filenames]
     def download (self):
@@ -99,9 +93,9 @@ class CYShare ( dataloader ):
         self.attrmapfile = os.path.join(self.datasetDir,'CYS_attr_map.csv')
         self.filenames = [ 'station.csv','trip.csv','weather.csv']
         self.filepaths = { x:os.path.join(self.dir, x ) for x in self.filenames } 
-        self.attrdrops = {'weather':[], 
-                          'trip':['from_station_name','to_station_name'],
-                          'station':['decommission_date','name','install_date','install_dockcount','modification_date']  }
+        self.attrdrops = {'weather.csv':[], 
+                          'trip.csv':['from_station_name','to_station_name'],
+                          'station.csv':['decommission_date','name','install_date','install_dockcount','modification_date']  }
         self.base_url ='https://www.kaggle.com/benhamner/pronto/cycle-share-dataset/downloads/' 
         self.data_url = [self.base_url+x for x in self.filenames]
     def download (self):
