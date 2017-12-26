@@ -142,6 +142,11 @@ class  datacollector():
         return self.comb_table
 
     def get_comb_info_from_table(self, df_table, save=False):        
+        print('start')
+        df_tp_wt = df_table['wt_idx'].apply(lambda x: self.df_wt.iloc[int(x)].copy() )
+        df_tp_st = df_table['st_idx'].apply(lambda x: self.df_st.iloc[int(x)].copy() )
+        print('check') 
+        '''
         df_tp_wt = pd.DataFrame(columns=list(self.df_wt))
         df_tp_st = pd.DataFrame(columns=list(self.df_st))
         print(len(df_table.index))
@@ -152,7 +157,7 @@ class  datacollector():
             df_tp_st = df_tp_st.append(self.df_st.iloc[s_idx].copy())
             if(i%1000==0):
                 print(i)
-
+        '''
         df_tp_wt.index = df_table.index
         df_tp_st.index = df_table.index
         df_comb_info = pd.concat([df_table, df_tp_wt], axis=1)
