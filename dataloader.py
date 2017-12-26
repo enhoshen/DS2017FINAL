@@ -5,6 +5,9 @@ import getpass
 import pandas as pd
 from functools import reduce
 from timehelper import *
+from datacollector import datacollector
+
+
 class dataloader () :
     def __init__(self):
         #self.getkaggleinfo()
@@ -81,6 +84,8 @@ class SFbay ( dataloader ):
         self.data_url = [self.base_url+x for x in self.filenames]
     def download (self):
         self.kaggledownload(self.dir)
+    def info4collector(self):
+        return [self.dt, self.dir]
      
 class CYShare ( dataloader ):
     def __init__(self):
@@ -88,7 +93,8 @@ class CYShare ( dataloader ):
         self.dir = os.path.join(self.datasetDir,'CYCLESHARE')
         self.attrmapfile = os.path.join(self.datasetDir,'CYS_attr_map.csv')
         self.filenames = [ 'station.csv','trip.csv','weather.csv']
-        self.filepaths = { x:os.path.join(self.dir, x ) for x in self.filenames } 
+        self.filepaths = { x:os.path.join(self.dir, x ) for x in self.filenames }
+        self.parsedfilepaths = {'parsed'+x:os.path.join(self.dir,'parsed'+x) for x in self.filenames }
         self.attrdrops = {'weather.csv':[], 
                           'trip.csv':['from_station_name','to_station_name'],
                           'station.csv':['decommission_date','name','install_date','install_dockcount','modification_date']  }
@@ -96,11 +102,13 @@ class CYShare ( dataloader ):
         self.data_url = [self.base_url+x for x in self.filenames]
     def download (self):
         self.kaggledownload(self.dir)
+    def info4collector(self):
+        return [self.dt, self.dir]
 if __name__ == '__main__':
-    sf = SFbay()
-    sf.dataparse()
-    print(sf.wt['wdate'])
-    sf.store()
-    sf.dataload('True')
-    print(sf.wt['wdate'])
-    print(sf.wt['wdate'][0])
+    cy = CYShare()
+    cy.dataload('True')
+
+    infos = cy.info4collector()
+    collector = datacollector(infos)
+    collector.save_comb_info()
+    #print(collector.load_task1_data([2014,12], [2015,1]))

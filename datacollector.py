@@ -9,14 +9,14 @@ from timehelper import *
 class  datacollector():
     """docstring for  datacollector"""
     def __init__(self, infos):
-        df_st = pd.DataFrame(infos[0])
+        df_st = pd.DataFrame(infos[0]['st'])
         df_dist_st = self.get_station_distinfo(df_st)
         self.df_st = pd.concat([df_st, df_dist_st], axis=1)
         
-        self.df_tp = pd.DataFrame(infos[1])
-        self.df_wt = pd.DataFrame(infos[2])
+        self.df_tp = pd.DataFrame(infos[0]['tp'])
+        self.df_wt = pd.DataFrame(infos[0]['wt'])
         
-        o_dir = infos[3]
+        o_dir = infos[1]
         self.table_path = os.path.join(o_dir, 'combin_info_table.csv')
         self.comb_info_path = os.path.join(o_dir, 'combin_info.csv')
 
@@ -97,6 +97,9 @@ class  datacollector():
         if os.path.exists(self.table_path):
             csvfile = pd.read_csv(self.table_path, encoding='utf8')
             self.comb_table = pd.DataFrame(csvfile)
+            table = ['sdate', 'stime', 'edate', 'etime']
+            for attr in table:
+                self.comb_table[attr] = self.comb_table[attr].apply(parsedstr2time)
             return self.comb_table
 
         task_cols = list(self.df_tp)
@@ -141,28 +144,14 @@ class  datacollector():
     def get_comb_info_from_table(self, df_table, save=False):        
         df_tp_wt = pd.DataFrame(columns=list(self.df_wt))
         df_tp_st = pd.DataFrame(columns=list(self.df_st))
-
+        print(len(df_table.index))
         for i in range(len(df_table.index)):
             w_idx = int(df_table['wt_idx'][i])
             s_idx = int(df_table['st_idx'][i])
             df_tp_wt = df_tp_wt.append(self.df_wt.iloc[w_idx].copy())
             df_tp_st = df_tp_st.append(self.df_st.iloc[s_idx].copy())
-
-        df_tp_wt.index = df_table.index
-        df_tp_st.index = df_table.index
-        df_comb_info = pd.concat([df_table, df_tp_wt], axis=1)
-        df_comb_info = pd.concat([df_comb_info, df_tp_st], axis=1)
-        return df_comb_info
-
-    def get_comb_info_from_table(self, df_table, save=False):        
-        df_tp_wt = pd.DataFrame(columns=list(self.df_wt))
-        df_tp_st = pd.DataFrame(columns=list(self.df_st))
-
-        for i in range(len(df_table.index)):
-            w_idx = int(df_table['wt_idx'][i])
-            s_idx = int(df_table['st_idx'][i])
-            df_tp_wt = df_tp_wt.append(self.df_wt.iloc[w_idx].copy())
-            df_tp_st = df_tp_st.append(self.df_st.iloc[s_idx].copy())
+            if(i%1000==0):
+                print(i)
 
         df_tp_wt.index = df_table.index
         df_tp_st.index = df_table.index
@@ -171,7 +160,7 @@ class  datacollector():
         return df_comb_info
 
     def st_usage_freq(self, sid, stime, etime):
-        df_intime = timesel_interval(self.df_tp, 'sdate' ,stime, etime)
+        df_intime = timesel_interval(self.comb_table, 'sdate' ,stime, etime)
 
         while(len(stime))<3:
             stime.append(1)
@@ -181,7 +170,69 @@ class  datacollector():
         eday = datetime.date(etime[0],etime[1],etime[2])
         diff = eday - sday
         days = float(diff.days)
-        sn = float(len(df_intime[df_intime['ssid'] == sid].index))
-        en = float(len(df_intime[df_intime['esid'] == sid].index))
+        sn = float(len(df_intime[df_intime['ssid'] == sid].index)/2)
+        en = float(len(df_intime[df_intime['esid'] == sid].index)/2)
         freq = (sn+en) / days
         return freq
+
+    def load_task1_data(self, stime, etime):
+        df_table = self.get_comb_info_table()
+
+        print(len(df_table.index))
+        df_table_intime = timesel_interval(df_table, 'sdate' ,stime, etime)
+        df_table_intime.index = range(len(df_table_intime.index))
+        print(len(df_table_intime.index))
+
+        df_comb_info = self.get_comb_info_from_table(df_table)
+        df_comb_info.to_csv(self.comb_info_path, sep=',', encoding='utf-8', index=False)
+        
+        freq_table = {}
+        for st_idx in range(len(self.df_st.index)):
+            sid = self.df_st['sid'][st_idx]
+            freq_table[sid] = self.st_usage_freq(sid, stime, etime)
+            print(sid)
+
+        target = []
+        print(list(df_intime))
+
+    def save_comb_info(self):
+        df_table = self.get_comb_info_table()
+        print(len(df_table))
+
+        with open(self.comb_info_path,'w') as f:
+            for j in range(len(list(df_table))):
+                attr = str(list(df_table)[j]) + ','
+                f.write(attr)
+            for j in range(len(list(self.df_wt))):
+                attr = str(list(self.df_wt)[j]) + ','
+                f.write(attr)
+            for j in range(len(list(self.df_st))):
+                if j == len(list(self.df_st))-1:
+                    attr = str(list(self.df_st)[j]) + '\n'
+                else:
+                    attr = str(list(self.df_st)[j]) + ','
+                f.write(attr)
+            
+            for i in range(len(df_table.index)):
+                w_idx = int(df_table['wt_idx'][i])
+                s_idx = int(df_table['st_idx'][i])
+                for j in range(len(list(df_table))):
+                    if type(df_table.iloc[i][j]) == list:
+                        attr = '"' + str(df_table.iloc[i][j]) + '"' + ','
+                    else:
+                        attr = str(df_table.iloc[i][j]) + ','
+                    f.write(attr)
+                for j in range(len(list(self.df_wt))):
+                    if type(self.df_wt.iloc[w_idx][j]) == list:
+                        attr = '"' + str(self.df_wt.iloc[w_idx][j]) + '"' + ','
+                    else:
+                        attr = str(self.df_wt.iloc[w_idx][j]) + ','
+                    f.write(attr)
+                for j in range(len(list(self.df_st))):
+                    if j == len(list(self.df_st))-1:
+                        attr = str(list(self.df_st.iloc[s_idx])[j]) + '\n'
+                    else:
+                        attr = str(list(self.df_st.iloc[s_idx])[j]) + ','
+                    f.write(attr)                
+                if(i%1000==0):
+                    print(i)       
