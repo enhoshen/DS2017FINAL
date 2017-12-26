@@ -5,6 +5,7 @@ import datetime
 import numpy as np
 import pandas as pd
 from timehelper import *
+import time
 
 class  datacollector():
     """docstring for  datacollector"""
@@ -18,7 +19,8 @@ class  datacollector():
         
         o_dir = infos[1]
         self.table_path = os.path.join(o_dir, 'combin_info_table.csv')
-        self.comb_info_path = os.path.join(o_dir, 'combin_info.csv')
+        self.comb_info_path = os.path.join(o_dir, 'combin_info_2.csv')
+        self.station_info_path = os.path.join(o_dir, 'station_info.csv')
 
     def distance(self, p0, p1):
         return math.sqrt((p0[0] - p1[0])**2 + (p0[1] - p1[1])**2)     
@@ -203,41 +205,21 @@ class  datacollector():
     def save_comb_info(self):
         df_table = self.get_comb_info_table()
         print(len(df_table))
+        t = time.time()
+        combin_info = self.get_comb_info_from_table(df_table)
+        combin_info.to_csv(self.comb_info_path, sep=',', encoding='utf-8', index=False)
+        elapsed = time.time() - t
+        print("elapsed time:", elapsed)
 
-        with open(self.comb_info_path,'w') as f:
-            for j in range(len(list(df_table))):
-                attr = str(list(df_table)[j]) + ','
-                f.write(attr)
-            for j in range(len(list(self.df_wt))):
-                attr = str(list(self.df_wt)[j]) + ','
-                f.write(attr)
-            for j in range(len(list(self.df_st))):
-                if j == len(list(self.df_st))-1:
-                    attr = str(list(self.df_st)[j]) + '\n'
-                else:
-                    attr = str(list(self.df_st)[j]) + ','
-                f.write(attr)
-            
-            for i in range(len(df_table.index)):
-                w_idx = int(df_table['wt_idx'][i])
-                s_idx = int(df_table['st_idx'][i])
-                for j in range(len(list(df_table))):
-                    if type(df_table.iloc[i][j]) == list:
-                        attr = '"' + str(df_table.iloc[i][j]) + '"' + ','
-                    else:
-                        attr = str(df_table.iloc[i][j]) + ','
-                    f.write(attr)
-                for j in range(len(list(self.df_wt))):
-                    if type(self.df_wt.iloc[w_idx][j]) == list:
-                        attr = '"' + str(self.df_wt.iloc[w_idx][j]) + '"' + ','
-                    else:
-                        attr = str(self.df_wt.iloc[w_idx][j]) + ','
-                    f.write(attr)
-                for j in range(len(list(self.df_st))):
-                    if j == len(list(self.df_st))-1:
-                        attr = str(list(self.df_st.iloc[s_idx])[j]) + '\n'
-                    else:
-                        attr = str(list(self.df_st.iloc[s_idx])[j]) + ','
-                    f.write(attr)                
-                if(i%1000==0):
-                    print(i)       
+    def save_station_csv(self, stime, etime):
+        df_table = self.get_comb_info_table()
+        sLength = len(self.df_st)
+        freq = pd.Series(np.random.randn(sLength))
+        for st_idx in range(len(self.df_st.index)):
+            sid = self.df_st['sid'][st_idx]
+            val = self.st_usage_freq(sid, stime, etime)
+            freq[st_idx] = val
+
+
+        df_st = pd.concat([self.df_st, freq], axis=1)
+        df_st.to_csv(self.station_info_path, sep=',', encoding='utf-8', index=False)
