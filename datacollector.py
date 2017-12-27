@@ -6,6 +6,7 @@ import numpy as np
 import pandas as pd
 from timehelper import *
 import time
+from math import sin, cos, sqrt, atan2, radians
 
 class  datacollector():
     """docstring for  datacollector"""
@@ -19,11 +20,25 @@ class  datacollector():
         
         o_dir = infos[1]
         self.table_path = os.path.join(o_dir, 'combin_info_table.csv')
-        self.comb_info_path = os.path.join(o_dir, 'combin_info_2.csv')
+        self.comb_info_path = os.path.join(o_dir, 'combin_info.csv')
         self.station_info_path = os.path.join(o_dir, 'station_info.csv')
 
     def distance(self, p0, p1):
-        return math.sqrt((p0[0] - p1[0])**2 + (p0[1] - p1[1])**2)     
+        R = 6373.0
+
+        lat1 = radians(p0[0])
+        lon1 = radians(p0[1])
+        lat2 = radians(p1[0])
+        lon2 = radians(p1[1])
+
+        dlon = lon2 - lon1
+        dlat = lat2 - lat1
+
+        a = sin(dlat / 2)**2 + cos(lat1) * cos(lat2) * sin(dlon / 2)**2
+        c = 2 * atan2(sqrt(a), sqrt(1 - a))
+
+        distance = R * c
+        return distance
 
     def get_station_distinfo(self, df_st):
         # 1.calculate the distance between stations
@@ -96,6 +111,7 @@ class  datacollector():
 
     def get_comb_info_table(self, save=True):
 
+        '''
         if os.path.exists(self.table_path):
             csvfile = pd.read_csv(self.table_path, encoding='utf8')
             self.comb_table = pd.DataFrame(csvfile)
@@ -103,7 +119,8 @@ class  datacollector():
             for attr in table:
                 self.comb_table[attr] = self.comb_table[attr].apply(parsedstr2time)
             return self.comb_table
-
+        '''
+        t = time.time()
         task_cols = list(self.df_tp)
         task_cols.extend(['tp_dist'])
         task_cols.extend(['wt_idx'])
@@ -139,27 +156,15 @@ class  datacollector():
 
         if save:
             df_comb_table.to_csv(self.table_path, sep=',', encoding='utf-8', index=False)
-
+        
+        elapsed = time.time() - t
+        print("saving table elapsed time:", elapsed)
         self.comb_table = df_comb_table
         return self.comb_table
 
     def get_comb_info_from_table(self, df_table, save=False):        
-        print('start')
         df_tp_wt = df_table['wt_idx'].apply(lambda x: self.df_wt.iloc[int(x)].copy() )
         df_tp_st = df_table['st_idx'].apply(lambda x: self.df_st.iloc[int(x)].copy() )
-        print('check') 
-        '''
-        df_tp_wt = pd.DataFrame(columns=list(self.df_wt))
-        df_tp_st = pd.DataFrame(columns=list(self.df_st))
-        print(len(df_table.index))
-        for i in range(len(df_table.index)):
-            w_idx = int(df_table['wt_idx'][i])
-            s_idx = int(df_table['st_idx'][i])
-            df_tp_wt = df_tp_wt.append(self.df_wt.iloc[w_idx].copy())
-            df_tp_st = df_tp_st.append(self.df_st.iloc[s_idx].copy())
-            if(i%1000==0):
-                print(i)
-        '''
         df_tp_wt.index = df_table.index
         df_tp_st.index = df_table.index
         df_comb_info = pd.concat([df_table, df_tp_wt], axis=1)
@@ -204,7 +209,6 @@ class  datacollector():
 
     def save_comb_info(self):
         df_table = self.get_comb_info_table()
-        print(len(df_table))
         t = time.time()
         combin_info = self.get_comb_info_from_table(df_table)
         combin_info.to_csv(self.comb_info_path, sep=',', encoding='utf-8', index=False)
@@ -214,12 +218,11 @@ class  datacollector():
     def save_station_csv(self, stime, etime):
         df_table = self.get_comb_info_table()
         sLength = len(self.df_st)
-        freq = pd.Series(np.random.randn(sLength))
+        df_st = self.df_st
+        df_st['freq'] = np.zeros((sLength,1))
         for st_idx in range(len(self.df_st.index)):
             sid = self.df_st['sid'][st_idx]
             val = self.st_usage_freq(sid, stime, etime)
-            freq[st_idx] = val
+            df_st.set_value(st_idx, 'freq', val)
 
-
-        df_st = pd.concat([self.df_st, freq], axis=1)
         df_st.to_csv(self.station_info_path, sep=',', encoding='utf-8', index=False)
