@@ -34,6 +34,7 @@ class dataloader () :
             self.attrrename()
             self.timeparse()
             self.eventparse()
+            self.trim()
         else :
             self.dt = { d:pd.read_csv(self.parsedfilepaths['parsed'+f]) for d,f in self.usedfiles.items() }
             self.timeparse(restore=True)
@@ -71,6 +72,8 @@ class dataloader () :
             self.dt[d].to_csv(os.path.join(self.dir,'parsed'+f), index= False )
     def eventparse(self):
         return
+    def trim(self):
+        return
 class SFbay ( dataloader ):
     def __init__(self):
         dataloader.__init__(self)
@@ -105,6 +108,13 @@ class CYShare ( dataloader ):
         self.kaggledownload(self.dir)
     def eventparse(self):
         self.dt['wt']['events']=self.dt['wt']['events'].apply(lambda x : x.replace(' , ','-') if x==x  else x  )
+    def trim (self):
+        table = ['8D OPS 02','Pronto shop 2','Pronto shop']
+        self.sel = self.dt['tp']['ssid']!=self.dt['tp']['ssid'] 
+        for x in table:
+            for y in ['ssid','esid']:
+                self.sel = self.sel | (self.dt['tp'][y] == x)
+        self.dt['tp'] = self.dt['tp'][~self.sel]
 def test():
     c = CYShare()
     c.dataload(restore=True)
