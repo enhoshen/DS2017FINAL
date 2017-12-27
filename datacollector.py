@@ -9,15 +9,17 @@ import time
 
 class  datacollector():
     """docstring for  datacollector"""
-    def __init__(self, infos):
-        df_st = pd.DataFrame(infos[0]['st'])
+    def __init__(self, dl):
+        df_st = pd.DataFrame(dl.dt['st'])
+        self.st2IdTable = { x:df_st['sid'][x] for x in df_st.index }
+        self.id2StTable = { df_st['sid'][x] :x for x in df_st.index}
         df_dist_st = self.get_station_distinfo(df_st)
         self.df_st = pd.concat([df_st, df_dist_st], axis=1)
         
-        self.df_tp = pd.DataFrame(infos[0]['tp'])
-        self.df_wt = pd.DataFrame(infos[0]['wt'])
+        self.df_tp = pd.DataFrame(dl.dt['tp'])
+        self.df_wt = pd.DataFrame(dl.dt['wt'])
         
-        o_dir = infos[1]
+        o_dir = dl.dir
         self.table_path = os.path.join(o_dir, 'combin_info_table.csv')
         self.comb_info_path = os.path.join(o_dir, 'combin_info_2.csv')
         self.station_info_path = os.path.join(o_dir, 'station_info.csv')
@@ -29,7 +31,7 @@ class  datacollector():
         # 1.calculate the distance between stations
         # 2. record the min distance between stations
         points = list(zip(df_st['lat'], df_st['long']))
-        st_num = sum(1 for x in points)
+        st_num = len(points)
         points_dist = np.zeros((st_num, st_num))
         min_dist = np.ones((st_num,1))
         min_station = ["" for x in range(st_num)]
@@ -41,15 +43,16 @@ class  datacollector():
                 if (i != j) and (dist < min_dist[i]):
                     min_dist[i] = dist
                     min_station[i] = df_st['sid'][j]
-        
+        dist_list = [ x for x in points_dist ]
         df_dist_info = pd.DataFrame(index = range(len(df_st)))
         df_dist_info['mindist'] = min_dist
         df_dist_info['mindist_sid'] = min_station
-
+        '''
         for i in range(st_num):
             newcolname = 'dist2_' + df_st['sid'][i]
             df_dist_info[newcolname] = points_dist[i,:]
-        
+        '''
+        df_dist_info['dist'] = dist_list 
         # calculate the density of the station (staion numbers in average distance)
         avg_dist = np.mean(points_dist)
         density  = np.zeros((st_num,1))
@@ -111,7 +114,7 @@ class  datacollector():
 
         df_comb_table = pd.DataFrame(columns=task_cols)
         df_comb_table = df_comb_table.fillna(0)
-
+ 
         # trips corresponding to certain station
         for st_idx in range(len(self.df_st.index)):
             sid = self.df_st['sid'][st_idx]
@@ -148,18 +151,6 @@ class  datacollector():
         df_tp_wt = df_table['wt_idx'].apply(lambda x: self.df_wt.iloc[int(x)].copy() )
         df_tp_st = df_table['st_idx'].apply(lambda x: self.df_st.iloc[int(x)].copy() )
         print('check') 
-        '''
-        df_tp_wt = pd.DataFrame(columns=list(self.df_wt))
-        df_tp_st = pd.DataFrame(columns=list(self.df_st))
-        print(len(df_table.index))
-        for i in range(len(df_table.index)):
-            w_idx = int(df_table['wt_idx'][i])
-            s_idx = int(df_table['st_idx'][i])
-            df_tp_wt = df_tp_wt.append(self.df_wt.iloc[w_idx].copy())
-            df_tp_st = df_tp_st.append(self.df_st.iloc[s_idx].copy())
-            if(i%1000==0):
-                print(i)
-        '''
         df_tp_wt.index = df_table.index
         df_tp_st.index = df_table.index
         df_comb_info = pd.concat([df_table, df_tp_wt], axis=1)

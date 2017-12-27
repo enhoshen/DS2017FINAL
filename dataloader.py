@@ -87,9 +87,7 @@ class SFbay ( dataloader ):
         self.data_url = [self.base_url+x for x in self.filenames]
     def download (self):
         self.kaggledownload(self.dir)
-    def info4collector(self):
-        return [self.dt, self.dir]
-     
+    
 class CYShare ( dataloader ):
     def __init__(self):
         dataloader.__init__(self)
@@ -107,23 +105,12 @@ class CYShare ( dataloader ):
         self.kaggledownload(self.dir)
     def eventparse(self):
         self.dt['wt']['events']=self.dt['wt']['events'].apply(lambda x : x.replace(' , ','-') if x==x  else x  )
-    def info4collector(self):
-        return [self.dt, self.dir]
-def test1():
-    c = CYShare()
-    c.dataload()
-    c.eventparse()
-    infos=c.info4collector()
-    coll = datacollector(infos)
-    ct = coll.get_comb_info_table()
-  
 def test():
     c = CYShare()
-    c.dataload()
+    c.dataload(restore=True)
     infos=c.info4collector()
     coll = datacollector(infos)
-    ct = coll.get_comb_info_table()
-    coll.get_comb_info_from_table(ct)
+    coll.save_comb_info()
 if __name__ == '__main__':
     cy = CYShare()
     cy.dataload('True')
