@@ -111,7 +111,7 @@ class  datacollector():
 
     def get_comb_info_table(self, save=True):
 
-        '''
+
         if os.path.exists(self.table_path):
             csvfile = pd.read_csv(self.table_path, encoding='utf8')
             self.comb_table = pd.DataFrame(csvfile)
@@ -119,7 +119,7 @@ class  datacollector():
             for attr in table:
                 self.comb_table[attr] = self.comb_table[attr].apply(parsedstr2time)
             return self.comb_table
-        '''
+
         t = time.time()
         task_cols = list(self.df_tp)
         task_cols.extend(['tp_dist'])
