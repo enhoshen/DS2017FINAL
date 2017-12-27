@@ -19,6 +19,7 @@ class  datacollector():
         
         self.df_tp = pd.DataFrame(dl.dt['tp'])
         self.df_wt = pd.DataFrame(dl.dt['wt'])
+        self.wt_idx= { v[0]*10000+v[1]*100+v[2]: i for i,v in enumerate(self.df_wt['wdate']) }
         for col in ['ssid','esid']:
             self.df_tp[col] = self.df_tp[col].apply( lambda x : self.st2idTable[x] ) 
 
@@ -26,7 +27,7 @@ class  datacollector():
         self.table_path = os.path.join(o_dir, 'combin_info_table.csv')
         self.comb_info_path = os.path.join(o_dir, 'combin_info.csv')
         self.station_info_path = os.path.join(o_dir, 'station_info.csv')
-
+        self.comb_trip_path = os.path.join(o_dir,'comb_trip.csv')
     def distance(self, p0, p1):
         R = 6373.0
 
@@ -113,33 +114,47 @@ class  datacollector():
             df_tp = df_tp.drop(df_tp.index[rm_row])
 
         return df_tp
-    def savecombtable(self,save=True):
-        '''
-        if os.path.exists(self.table_path):
+    def savecombinfo(self,restore=False,save=True):
+        
+        if restore and os.path.exists(self.comb_trip_path):
             csvfile = pd.read_csv(self.table_path, encoding='utf8')
-            self.comb_table = pd.DataFrame(csvfile)
+            self.df_tp = pd.DataFrame(csvfile)
             table = ['sdate', 'stime', 'edate', 'etime']
             for attr in table:
-                self.comb_table[attr] = self.comb_table[attr].apply(parsedstr2time)
-            return self.comb_table
-        '''
-        t= time.time()
-        print ('start')
-        self.df_tp  = self.df_tp.fillna(0)
-        self.df_tp['tp_dist'] = self.df_tp.apply( lambda x :self.df_st['dist'][x['ssid'] ][x['esid'] ] , axis=1)
-        print (time.time() -t)
-        t= time.time()   
+                self.df_tp[attr] = self.df_tp[attr].apply(parsedstr2time)
+        else :
+            t= time.time()
+            print ('start')
+            self.df_tp  = self.df_tp.fillna(0)
+            self.df_tp['tp_dist'] = self.df_tp.apply( lambda x :self.df_st['dist'][x['ssid'] ][x['esid'] ] , axis=1)
+            print (time.time() -t)
+            t= time.time()   
+            df_tp_wt = self.df_tp['sdate'].apply(lambda x : self.df_wt.iloc[self.wt_idx[x[0]*10000+x[1]*100+x[2] ] ] ) 
+            print (time.time() -t)
+            t= time.time()   
+ 
+            self.df_tp = pd.concat( [self.df_tp,df_tp_wt ] ,axis=1) 
+            self.df_tp.to_csv(self.comb_trip_path,index=False)
         df_stp = self.df_tp.copy()
         df_etp = self.df_tp.copy()
         
-        df_stp['wt_idx'] = df_stp['sdate'].apply(lambda x:timesel(self.df_wt ,'wdate' , x).index[0] )
+        
         print (time.time() -t)
-        t= time.time()   
-        df_etp['wt_idx'] = df_etp['wt_idx']
+        t= time.time()
+
+
+        df_stp['is_sst'] = df_stp['ssid'] == df_stp['ssid']  
+        df_etp['is_sst'] = ~df_stp['is_sst']
+       
+        st_col = ['dcnt' , 'mindist', 'mindist_sid','density'] 
+        st = df_stp['ssid'].apply(lambda x : self.df_st.iloc[int(x)][st_col] )
+        df_stp = pd.concat( [df_stp,st] , axis=1)
+        st = df_etp['esid'].apply(lambda x : self.df_st.iloc[int(x)][st_col]  )
+        df_etp = pd.concat( [df_etp,st] , axis=1)
     
         self.df_tp = pd.concat([df_stp,df_etp], axis=0 )
         if save :
-            self.df_tp.to_csv(self.table_path,sep=',',encoding='tf-8',index=False)
+            self.df_tp.to_csv(self.comb_info_path,sep=',',encoding='utf-8',index=False)
         print ('check')
             
     def get_comb_info_table(self, save=True):
