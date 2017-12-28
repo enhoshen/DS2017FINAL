@@ -163,7 +163,7 @@ class  datacollector():
         if save :
             self.df_tp.to_csv(self.comb_info_path,sep=',',encoding='utf-8',index=False)
         print ('check')
-            
+'''            
     def get_comb_info_table(self, save=True):
 
 
@@ -225,7 +225,7 @@ class  datacollector():
         df_comb_info = pd.concat([df_table, df_tp_wt], axis=1)
         df_comb_info = pd.concat([df_comb_info, df_tp_st], axis=1)
         return df_comb_info
-
+'''
     def st_usage_freq(self, sid, stime, etime):
         df_intime = timesel_interval(self.comb_table, 'sdate' ,stime, etime)
 
@@ -269,6 +269,16 @@ class  datacollector():
         combin_info.to_csv(self.comb_info_path, sep=',', encoding='utf-8', index=False)
         elapsed = time.time() - t
         print("elapsed time:", elapsed)
+    def getcomb_info(self):
+        if os.path.exists(self.):
+            csvfile = pd.read_csv(self.comb_info_path, encoding='utf8')
+            self.df_tp = pd.DataFrame(csvfile)
+            table = ['sdate', 'stime', 'edate', 'etime']
+            for attr in table:
+                self.df_tp[attr] = self.df_tp[attr].apply(parsedstr2time)
+
+
+       
 
     def save_station_csv(self, stime, etime):
         df_table = self.get_comb_info_table()
