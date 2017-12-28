@@ -147,11 +147,18 @@ class  datacollector():
         df_etp['is_sst'] = ~df_stp['is_sst']
        
         st_col = ['dcnt' , 'mindist', 'mindist_sid','density'] 
-        st = df_stp['ssid'].apply(lambda x : self.df_st.iloc[int(x)][st_col] )
+        tmp_st = self.df_st[st_col]
+        st = df_stp['ssid'].apply(lambda x : tmp_st.iloc[int(x)] )
         df_stp = pd.concat( [df_stp,st] , axis=1)
-        st = df_etp['esid'].apply(lambda x : self.df_st.iloc[int(x)][st_col]  )
+        print (time.time() -t)
+        t= time.time()
+
+        st = df_etp['esid'].apply(lambda x : tmp_st.iloc[int(x)]  )
         df_etp = pd.concat( [df_etp,st] , axis=1)
-    
+        print (time.time() -t)
+        t= time.time()
+
+   
         self.df_tp = pd.concat([df_stp,df_etp], axis=0 )
         if save :
             self.df_tp.to_csv(self.comb_info_path,sep=',',encoding='utf-8',index=False)
