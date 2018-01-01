@@ -5,8 +5,6 @@ import getpass
 import pandas as pd
 from functools import reduce
 from timehelper import *
-from datacollector import datacollector
-
 
 class dataloader () :
     def __init__(self):
@@ -118,9 +116,9 @@ class CYShare ( dataloader ):
 def test():
     c = CYShare()
     c.dataload(restore=True)
-    infos=c.info4collector()
-    coll = datacollector(infos)
-    coll.save_comb_info()
+    coll = datacollector(c)
+    coll.getcomb_info()
+
 if __name__ == '__main__':
     cy = CYShare()
     cy.dataload('True')

@@ -2,6 +2,8 @@ import os
 import math
 import time
 import datetime
+import dateutil.relativedelta as dr
+import dataloader as dl
 import numpy as np
 import pandas as pd
 from timehelper import *
@@ -15,8 +17,8 @@ class  datacollector():
         self.id2stTable = { x:df_st['sid'][x] for x in df_st.index }
         self.st2idTable = { df_st['sid'][x] :x for x in df_st.index}
         df_dist_st = self.get_station_distinfo(df_st)
-        self.df_st = pd.concat([df_st, df_dist_st], axis=1)
-        
+        self.df_st = pd.concat([df_st, df_dist_st], axis=1) 
+
         self.df_tp = pd.DataFrame(dl.dt['tp'])
         self.df_wt = pd.DataFrame(dl.dt['wt'])
         self.wt_idx= { v[0]*10000+v[1]*100+v[2]: i for i,v in enumerate(self.df_wt['wdate']) }
@@ -80,41 +82,7 @@ class  datacollector():
         df_dist_info['density'] = density
 
         return df_dist_info
-
-    def get_tps_correlate2st(self, sid, isStart):
-        col = 'ssid' if isStart else 'esid'
-        df_tp_sub = self.df_tp[self.df_tp[col]==sid].copy()
-        tp_sub_num = len(df_tp_sub.index)
-        df_tp_sub.index = range(tp_sub_num)
-        if tp_sub_num > 0:
-            df_tp_sub['tp_dist'] = np.ones((tp_sub_num,1))
-            if isStart:
-                df_tp_sub['is_sst'] = np.ones((tp_sub_num,1))
-            else:
-                df_tp_sub['is_sst'] = np.zeros((tp_sub_num,1))
-        return df_tp_sub
-
-    def attach_wt_st_info(self, df_tp, st_idx, isStart):
-        rm_row = []
-        col = 'esid' if isStart else 'ssid'
-        for i in range(len(df_tp)):
-            stid = df_tp[col].iloc[i]
-            colsname = 'dist2_' + stid
-            if colsname in list(self.df_st):
-                dist = self.df_st[colsname].iloc[st_idx]
-                df_tp.set_value(i, 'tp_dist', dist)
-                
-                time = df_tp['sdate'].iloc[i]
-                wt_idx = timesel(self.df_wt, 'wdate', time).index[0]
-                df_tp.set_value(i, 'wt_idx', wt_idx)
-                df_tp.set_value(i, 'st_idx', st_idx)
-            else:
-                rm_row.append(i)
-        if rm_row:
-            df_tp = df_tp.drop(df_tp.index[rm_row])
-
-        return df_tp
-    def savecombinfo(self,restore=False,save=True):
+    def get_st_wt_comb_info(self,restore=False,save=True):
         
         if restore and os.path.exists(self.comb_trip_path):
             csvfile = pd.read_csv(self.table_path, encoding='utf8')
@@ -162,106 +130,61 @@ class  datacollector():
         self.df_tp = pd.concat([df_stp,df_etp], axis=0 )
         if save :
             self.df_tp.to_csv(self.comb_info_path,sep=',',encoding='utf-8',index=False)
-        print ('check')
-'''            
-    def get_comb_info_table(self, save=True):
-
-
-        if os.path.exists(self.table_path):
-            csvfile = pd.read_csv(self.table_path, encoding='utf8')
-            self.comb_table = pd.DataFrame(csvfile)
-            table = ['sdate', 'stime', 'edate', 'etime']
-            for attr in table:
-                self.comb_table[attr] = self.comb_table[attr].apply(parsedstr2time)
-            return self.comb_table
-
-        t = time.time()
-        task_cols = list(self.df_tp)
-        task_cols.extend(['tp_dist'])
-        task_cols.extend(['wt_idx'])
-        task_cols.extend(['st_idx'])
-
-        df_comb_table = pd.DataFrame(columns=task_cols)
-        df_comb_table = df_comb_table.fillna(0)
+        print ('check')   
+    def savecomb_info(self):
+        self.df_tp.to_csv(self.comb_info_path,sep=',',encoding='utf-8',index=False)
  
-        # trips corresponding to certain station
-        for st_idx in range(len(self.df_st.index)):
-            sid = self.df_st['sid'][st_idx]
-            print(st_idx, sid)
-
-            df_stp = self.get_tps_correlate2st(sid, isStart=True)
-            df_etp = self.get_tps_correlate2st(sid, isStart=False)
-            
-            df_stp = self.attach_wt_st_info(df_stp, st_idx, isStart=True)
-            df_etp = self.attach_wt_st_info(df_etp, st_idx, isStart=False)
-
-            stp_num = len(df_stp.index)
-            etp_num = len(df_etp.index)
-
-
-            if stp_num + etp_num > 1:
-                df_setp = pd.concat([df_stp, df_etp])
-            elif stp_num + etp_num == 1:
-                df_setp = df_stp if stp_num ==1 else df_etp
-            else:
-                continue
-
-            df_setp.index = range(len(df_setp.index))
-            df_comb_table = df_comb_table.append(df_setp)
-
-        if save:
-            df_comb_table.to_csv(self.table_path, sep=',', encoding='utf-8', index=False)
-        
-        elapsed = time.time() - t
-        print("saving table elapsed time:", elapsed)
-        self.comb_table = df_comb_table
-        return self.comb_table
-
-    def get_comb_info_from_table(self, df_table, save=False):        
-        df_tp_wt = df_table['wt_idx'].apply(lambda x: self.df_wt.iloc[int(x)].copy() )
-        df_tp_st = df_table['st_idx'].apply(lambda x: self.df_st.iloc[int(x)].copy() )
-        df_tp_wt.index = df_table.index
-        df_tp_st.index = df_table.index
-        df_comb_info = pd.concat([df_table, df_tp_wt], axis=1)
-        df_comb_info = pd.concat([df_comb_info, df_tp_st], axis=1)
-        return df_comb_info
-'''
     def st_usage_freq(self, sid, stime, etime):
-        df_intime = timesel_interval(self.comb_table, 'sdate' ,stime, etime)
+        df_intime = timesel_interval(self.df_tp, 'sdate' ,stime, etime)
 
-        while(len(stime))<3:
-            stime.append(1)
-        while (len(etime))<3:
-            etime.append(1)
-        sday = datetime.date(stime[0],stime[1],stime[2])
-        eday = datetime.date(etime[0],etime[1],etime[2])
+        sday = datetime.date(*stime)
+        eday = datetime.date(*etime)
         diff = eday - sday
         days = float(diff.days)
         sn = float(len(df_intime[df_intime['ssid'] == sid].index)/2)
         en = float(len(df_intime[df_intime['esid'] == sid].index)/2)
         freq = (sn+en) / days
         return freq
+    def parsebirth (self):
+        self.df_tp['birth']=self.df_tp['birth'].apply(lambda x : 2015-x if x != 0 else np.random.randint(18,35) ) 
+    def st_freq_table ( self):
+        st_num = len(self.df_st)
+        st = datetime.date(*self.df_wt['wdate'][0])
+        ed = datetime.date(*self.df_wt['wdate'].iloc[-1])
+        delta=dr.relativedelta( ed,st)
+        mth_num = delta.years*12 + delta.months + 1
+        self.tp_cnt = np.zeros( (st_num,mth_num) ) 
+        t= time.time()
 
-    def load_task1_data(self, stime, etime):
-        df_table = self.get_comb_info_table()
 
-        print(len(df_table.index))
-        df_table_intime = timesel_interval(df_table, 'sdate' ,stime, etime)
-        df_table_intime.index = range(len(df_table_intime.index))
-        print(len(df_table_intime.index))
-
-        df_comb_info = self.get_comb_info_from_table(df_table)
-        df_comb_info.to_csv(self.comb_info_path, sep=',', encoding='utf-8', index=False)
+        def mth_offset(x):
+            date= datetime.date(*x)
+            delta = dr.relativedelta( date,st)
+            return delta.years*12 + delta.months
+            
+        for i , row in self.df_tp.iterrows():
+            ssid= row['ssid']
+            esid= row['esid']
+            offset = mth_offset(row['sdate'])
+            self.tp_cnt[ssid][offset] += 1
+            self.tp_cnt[esid][offset] += 1
         
-        freq_table = {}
-        for st_idx in range(len(self.df_st.index)):
-            sid = self.df_st['sid'][st_idx]
-            freq_table[sid] = self.st_usage_freq(sid, stime, etime)
-            print(sid)
+        self.tp_cnt/=60
+        print (time.time() -t)
+        t= time.time()
 
-        target = []
-        print(list(df_intime))
 
+        freq = np.zeros( len(self.df_tp.index) )
+        for i , row in self.df_tp.iterrows():
+            offset=mth_offset(row['sdate'])
+            sid = row['ssid'] if row['is_sst'] else row['esid']
+            freq[i] = self.tp_cnt[sid][offset]
+        print (time.time() -t)
+        t= time.time()
+
+       
+        self.df_tp['freq'] = freq 
+        self.savecomb_info()
     def save_comb_info(self):
         df_table = self.get_comb_info_table()
         t = time.time()
@@ -270,15 +193,12 @@ class  datacollector():
         elapsed = time.time() - t
         print("elapsed time:", elapsed)
     def getcomb_info(self):
-        if os.path.exists(self.):
+        if os.path.exists(self.comb_info_path):
             csvfile = pd.read_csv(self.comb_info_path, encoding='utf8')
             self.df_tp = pd.DataFrame(csvfile)
             table = ['sdate', 'stime', 'edate', 'etime']
             for attr in table:
                 self.df_tp[attr] = self.df_tp[attr].apply(parsedstr2time)
-
-
-       
 
     def save_station_csv(self, stime, etime):
         df_table = self.get_comb_info_table()
@@ -290,4 +210,55 @@ class  datacollector():
             val = self.st_usage_freq(sid, stime, etime)
             df_st.set_value(st_idx, 'freq', val)
         df_st.to_csv(self.station_info_path, sep=',', encoding='utf-8', index=False)
+class taskloader ():
+    def __init__ (self,datasets):
+        return
+    def dataload(self):
+        return
+class task1 ( taskloader):
+    def __init__ (self):
+        self.droptable=['tid','sdate','edate','bid','wdate']
+        self.trainperc=0.5
+        self.parseflag=0
+        self.dir = './data/task1/'
+        
+    def parse (self):
+        data = self.colls[0]
+    def parse_data(self ,dataset='CY'):
+        if dataset == 'CY':
+            c = dl.CYShare()
+            c.dataload(True)
+            coll=datacollector(c)
+            coll.getcomb_info()
+            coll.df_tp['type']=coll.df_tp['type'].apply(lambda x : 1 if x=='Member' else -1 )
+            coll.df_tp['gender']=coll.df_tp['gender'].apply(lambda x : {'Male':1 ,'Female':-1,'Other':0,'0':0}[x] )
+        elif dataset == 'SF':
+            s = dl.SFbay()
+            s.dataload()
+            coll=datacollector(s)
+            coll.getcomb_info() 
+            coll.df_tp['type']=coll.df_tp['type'].apply(lambda x : 1 if x=='Subscriber' else -1)
+            coll.df_tp['birth'] = np.random.randint(22,30,size=len(coll.df_tp.index) ) 
+            coll.df_tp['gender'] = np.random.randint(-1,2,size=len(coll.df_tp.index) ) 
+        coll.df_tp['stime']=coll.df_tp['stime'].apply(lambda x: x[0])
+        coll.df_tp['etime']=coll.df_tp['etime'].apply(lambda x: x[0])
+        coll.df_tp['is_sst']= coll.df_tp['is_sst'].apply(lambda x : 1 if x else -1)
+        coll.df_tp['events']=coll.df_tp['events'].apply(lambda x : 1 if x == 'Rain' else 0 ) 
+        coll.df_tp = coll.df_tp.drop(self.droptable, axis=1)
+        coll.df_tp =coll.df_tp.fillna(0)
+        self.df = coll.df_tp        
+    def load_data(self,dataset='CY'):
+        if ~self.parseflag:
+            self.parse_data(dataset)
+        self.y = self.df['freq'].as_matrix()
+        self.x = self.df.drop(['freq'],axis=1).as_matrix ()
+
+        np.random.shuffle(self.y)
+        np.random.shuffle(self.x)
+    
+        sel_index = int(len(self.x)*self.trainperc)
+        return ( self.x[:sel_index],self.y[:sel_index]),(self.x[sel_index:],self.y[sel_index:] )
+
+
+
 
