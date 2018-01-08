@@ -18,11 +18,11 @@ def regression_models():
                                     max_depth=1, random_state=0, loss='ls')
 	randforst = RandomForestRegressor(max_depth=2, random_state=0)
 	nn = MLPRegressor(
-    hidden_layer_sizes=(10,),  activation='relu', solver='adam', alpha=0.001, batch_size='auto',
+    hidden_layer_sizes=(128,),  activation='relu', solver='adam', alpha=0.001, batch_size='auto',
     learning_rate='constant', learning_rate_init=0.01, power_t=0.5, max_iter=1000, shuffle=True,
     random_state=9, tol=0.0001, verbose=False, warm_start=False, momentum=0.9, nesterovs_momentum=True,
     early_stopping=False, validation_fraction=0.1, beta_1=0.9, beta_2=0.999, epsilon=1e-08)
-	return est
+	return nn
 
 def data_preprocess(data):
     data =  data / 255.0
@@ -51,11 +51,6 @@ if __name__ =='__main__':
     dataset= task1()
 
     (trn_x, trn_y), (tst_x, tst_y) = dataset.load_data('CY')
-
-
-    # maybe try to normalize the input first...
-    # normalization....(ref: data_preprocess function...)
-
     # Create linear regression object
     regr = regression_models()
 
@@ -64,9 +59,13 @@ if __name__ =='__main__':
 
     # Make predictions using the testing set
     pred_y = regr.predict(tst_x)
-    print (pred_y[:100],tst_y[:100])
+
     score = evaluate(pred_y, tst_y)
     print( score)
+    plt.scatter ( tst_y,pred_y  , color = 'black')
+    plt.ylabel('predicted frequency')
+    plt.xlabel('true frequency')
+    plt.show()
     # saving model information
     notes = 'record the training detail...'
 

@@ -147,12 +147,47 @@ class  datacollector():
         return freq
     def parsebirth (self):
         self.df_tp['birth']=self.df_tp['birth'].apply(lambda x : 2015-x if x != 0 else np.random.randint(18,35) ) 
-    def st_freq_table ( self):
-        st_num = len(self.df_st)
+    def get_st_hist (self):
+        st_num , mth_num = self.st_date_range()
+        def mth_offset(x):
+            date= datetime.date(*x)
+            delta = dr.relativedelta( date,st)
+            return delta.years*12 + delta.months        
+
+        tmp_tp=self.df_tp
+        tmp_tp['sdate']=tmp_tp['sdate'].apply(mth_offset)
+        tmp_tp=tmp_tp.sort_values(by=['ssid','sdate'],axis=0)
+        
+        def slicing( df,attr,bins ):
+            offset=np.cumsum( np.histogram(df[attr],bins=np.arange(bins+1)) )[0]  )
+            sliced=[ df[:offset[i]] if i==0 else df[offset[i-1]:offset[i]] for i in range(len(offset)) ]
+            return sliced
+        tp_in_st = slicing( tmp_tp , 'ssid',st_num )
+        table = self.attr_stat()
+        bin_num = 20
+        self.st_hist=pd.DataFrame(index= st_num*mth_num)
+        idx = 0
+        for x in tp_in_st:
+            tp_mth = slicing(x , 'sdate' , mth_num)
+            for y in tp_mth:
+                for attr,conf in table.items():
+                    self.st_hist[idx][attr]=np.histogram(y[attr],np.arange(conf[0],conf[1],(conf[1]-conf[0])/bin_num))
+                idx+=1
+            
+    def attr_stat (self):
+        attr_table = ['tp_dist','duration']
+        # comput min max std etc,          
+
+        return {}
+    def st_date_range(self):
+        self.st_num = len(self.df_st)
         st = datetime.date(*self.df_wt['wdate'][0])
         ed = datetime.date(*self.df_wt['wdate'].iloc[-1])
         delta=dr.relativedelta( ed,st)
-        mth_num = delta.years*12 + delta.months + 1
+        self.mth_num = delta.years*12 + delta.months + 1
+        return self.st_num , self.mth_num
+    def st_freq_table ( self):
+        st_num , mth_num = self.st_date_range()
         self.tp_cnt = np.zeros( (st_num,mth_num) ) 
         t= time.time()
 
@@ -210,20 +245,12 @@ class  datacollector():
             val = self.st_usage_freq(sid, stime, etime)
             df_st.set_value(st_idx, 'freq', val)
         df_st.to_csv(self.station_info_path, sep=',', encoding='utf-8', index=False)
+
 class taskloader ():
     def __init__ (self,datasets):
         return
     def dataload(self):
         return
-class task1 ( taskloader):
-    def __init__ (self):
-        self.droptable=['tid','sdate','edate','bid','wdate']
-        self.trainperc=0.5
-        self.parseflag=0
-        self.dir = './data/task1/'
-        
-    def parse (self):
-        data = self.colls[0]
     def parse_data(self ,dataset='CY'):
         if dataset == 'CY':
             c = dl.CYShare()
@@ -247,18 +274,42 @@ class task1 ( taskloader):
         coll.df_tp = coll.df_tp.drop(self.droptable, axis=1)
         coll.df_tp =coll.df_tp.fillna(0)
         self.df = coll.df_tp        
+    def shuffle(self):
+ 
+        np.random.shuffle(self.y)
+        np.random.shuffle(self.x)
+        
+class task1 ( taskloader):
+    def __init__ (self):
+        self.droptable=['tid','sdate','edate','bid','wdate']
+        self.trainperc=0.5
+        self.parseflag=0
+        self.dir = './data/task1/'
+        
+    def parse (self):
+        data = self.colls[0]
     def load_data(self,dataset='CY'):
         if ~self.parseflag:
             self.parse_data(dataset)
         self.y = self.df['freq'].as_matrix()
         self.x = self.df.drop(['freq'],axis=1).as_matrix ()
-
-        np.random.shuffle(self.y)
-        np.random.shuffle(self.x)
-    
+        self.shuffle()   
         sel_index = int(len(self.x)*self.trainperc)
         return ( self.x[:sel_index],self.y[:sel_index]),(self.x[sel_index:],self.y[sel_index:] )
+class task_test(taskloader):
+    def __init__(self):
+        self.droptable=['tid','sdate','edate','bid','wdate']
+        self.parseflag=0
+        self.trainperc=0.5
+    def load_data(self, dataset='CY'):
+        if ~self.parseflag:
+            self.parse_data(dataset)
+        self.y=self.df['freq'].as_matrix()
+        self.x=self.df.as_matrix(columns = ['duration','tp_dist'])
 
+        self.shuffle()
+        sel_index = int(len(self.x)*self.trainperc)
+        return ( self.x[:sel_index],self.y[:sel_index]),(self.x[sel_index:],self.y[sel_index:] )
 
 
 
