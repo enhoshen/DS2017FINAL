@@ -8,6 +8,7 @@ from sklearn.ensemble import GradientBoostingRegressor
 from sklearn.ensemble import RandomForestRegressor
 from sklearn.metrics import mean_squared_error, r2_score
 from datacollector import *
+from sklearn.externals import joblib
 
 def regression_models():
 	regr = linear_model.LinearRegression( normalize= True)
@@ -30,25 +31,17 @@ def data_preprocess(data):
     avg_data = np.mean(data.flatten()) 
     return (data-avg_data) / (std_data + 1e-8)
 
-def save_model(model, save_dir, model_name, Settings):
-    model_path = os.path.join(save_dir, model_name + '.h5')
-    info_path = os.path.join(save_dir, model_name +'_info.json')
-    model_json_path = os.path.join(save_dir, model_name +'.json')
-    model.save(model_path)    
-    model_json = model.to_json()
-    with open(model_json_path, "w") as json_file:
-        json_file.write(model_json)
+def save_model(model, save_dir, model_name):
+    model_path = os.path.join(save_dir, model_name + '.sav')
+    joblib.dump(model, model_path)
     print('Saved trained model')
 
-
-    with open(info_path, "w") as json_file:
-        json.dump(Settings, json_file, indent=1)
 
 def evaluate(pred,tst_y):
     return np.sum( (tst_y-pred)**2)/len(pred)
 if __name__ =='__main__':
     # Load the diabetes dataset
-    dataset= task1()
+    dataset= task1_hist()
 
     (trn_x, trn_y), (tst_x, tst_y) = dataset.load_data('CY')
     # Create linear regression object
@@ -73,5 +66,5 @@ if __name__ =='__main__':
     if not os.path.exists(save_dir):
         os.makedirs(save_dir)
 
-    model_name = 'model1'
-    save_model(regr, save_dir, model_name, Settings)
+    model_name = 'model_hist'
+    save_model(regr, save_dir, model_name)

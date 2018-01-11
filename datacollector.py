@@ -4,6 +4,7 @@ import time
 import datetime
 import dateutil.relativedelta as dr
 import dataloader as dl
+from dataloader import *
 import numpy as np
 import pandas as pd
 from timehelper import *
@@ -30,6 +31,7 @@ class  datacollector():
         self.comb_info_path = os.path.join(o_dir, 'combin_info.csv')
         self.station_info_path = os.path.join(o_dir, 'station_info.csv')
         self.comb_trip_path = os.path.join(o_dir,'comb_trip.csv')
+        self.st_hist_path = os.path.join(o_dir,'st_hist.json')
     def distance(self, p0, p1):
         R = 6373.0
 
@@ -147,8 +149,14 @@ class  datacollector():
         return freq
     def parsebirth (self):
         self.df_tp['birth']=self.df_tp['birth'].apply(lambda x : 2015-x if x != 0 else np.random.randint(18,35) ) 
+    
     def get_st_hist (self):
+        if os.path.exists(self.st_hist_path):
+            self.st_hist = pd.read_json(self.st_hist_path, encoding='utf8')
+            return self.st_hist
+        
         st_num , mth_num = self.st_date_range()
+        st = datetime.date(*self.df_wt['wdate'][0])
         def mth_offset(x):
             date= datetime.date(*x)
             delta = dr.relativedelta( date,st)
@@ -157,28 +165,54 @@ class  datacollector():
         tmp_tp=self.df_tp
         tmp_tp['sdate']=tmp_tp['sdate'].apply(mth_offset)
         tmp_tp=tmp_tp.sort_values(by=['ssid','sdate'],axis=0)
-        
+
         def slicing( df,attr,bins ):
-            offset=np.cumsum( np.histogram(df[attr],bins=np.arange(bins+1)) )[0]  )
+            offset=np.cumsum(np.histogram(df[attr],bins=np.arange(bins+1))[0])
             sliced=[ df[:offset[i]] if i==0 else df[offset[i-1]:offset[i]] for i in range(len(offset)) ]
             return sliced
         tp_in_st = slicing( tmp_tp , 'ssid',st_num )
+
         table = self.attr_stat()
         bin_num = 20
-        self.st_hist=pd.DataFrame(index= st_num*mth_num)
+        cols = []
+        cols.extend(table.keys())
+        cols.extend(['freq'])
+        self.st_hist=pd.DataFrame(index= np.arange(st_num*mth_num), columns=cols)
         idx = 0
+
+        tmp = self.df_tp.copy()
+        tmp['birth']=tmp['birth'].apply(lambda x : math.floor(x/20))
         for x in tp_in_st:
             tp_mth = slicing(x , 'sdate' , mth_num)
             for y in tp_mth:
                 for attr,conf in table.items():
-                    self.st_hist[idx][attr]=np.histogram(y[attr],np.arange(conf[0],conf[1],(conf[1]-conf[0])/bin_num))
+                    hist_list = list()
+                    hist_cols = ['gender', 'type', 'birth', 'events']
+                    tmp_y = y.copy()
+                    tmp_y['birth']=tmp_y['birth'].apply(lambda x : math.floor(x/20))
+                    for col in hist_cols:
+                        for event in tmp[col].unique():
+                            hist_x = tmp_y[tmp_y[col]==event]
+                            hist = np.histogram(hist_x[attr],bins=np.arange(conf[0],conf[1],(conf[1]-conf[0])/bin_num))[0]
+                            hist_list.extend(hist)
+                    self.st_hist[attr][idx] = hist_list
+                    self.st_hist['freq'][idx] = len(tmp_y)/30.0
                 idx+=1
+
+        self.st_hist.to_json(self.st_hist_path)
+
+        return self.st_hist
             
     def attr_stat (self):
         attr_table = ['tp_dist','duration']
-        # comput min max std etc,          
+        table = {}
+        for attr in attr_table:
+            std_val = self.df_tp[attr].std()
+            min_val = max(self.df_tp[attr].mean() - 2*std_val, self.df_tp[attr].min())
+            max_val = min(self.df_tp[attr].mean() + 2*std_val, self.df_tp[attr].max())
+            table[attr] = [min_val, max_val, std_val]        
+        return table
 
-        return {}
     def st_date_range(self):
         self.st_num = len(self.df_st)
         st = datetime.date(*self.df_wt['wdate'][0])
@@ -273,7 +307,8 @@ class taskloader ():
         coll.df_tp['events']=coll.df_tp['events'].apply(lambda x : 1 if x == 'Rain' else 0 ) 
         coll.df_tp = coll.df_tp.drop(self.droptable, axis=1)
         coll.df_tp =coll.df_tp.fillna(0)
-        self.df = coll.df_tp        
+        self.df = coll.df_tp
+        self.coll = coll        
     def shuffle(self):
  
         np.random.shuffle(self.y)
@@ -296,6 +331,30 @@ class task1 ( taskloader):
         self.shuffle()   
         sel_index = int(len(self.x)*self.trainperc)
         return ( self.x[:sel_index],self.y[:sel_index]),(self.x[sel_index:],self.y[sel_index:] )
+
+
+class task1_hist ( taskloader):
+    def __init__ (self):
+        self.trainperc=0.5
+        self.parseflag=0
+        self.dir = './data/task1_hist/'
+        
+    def parse (self):
+        data = self.colls[0]
+    def load_data(self,dataset='CY'):
+        c = dl.CYShare()
+        c.dataload(True)
+        self.coll=datacollector(c)
+        st_hist = self.coll.get_st_hist()
+        self.y = st_hist['freq'].as_matrix()
+        x = st_hist.as_matrix (columns = ['duration','tp_dist'])
+        x = np.array(x[:,0] + x[:,1])
+        x = x.tolist()
+        self.x = np.array(x)
+        self.shuffle()   
+        sel_index = int(len(self.x)*self.trainperc)
+        return ( self.x[:sel_index],self.y[:sel_index]),(self.x[sel_index:],self.y[sel_index:] )
+
 class task_test(taskloader):
     def __init__(self):
         self.droptable=['tid','sdate','edate','bid','wdate']
@@ -311,5 +370,16 @@ class task_test(taskloader):
         sel_index = int(len(self.x)*self.trainperc)
         return ( self.x[:sel_index],self.y[:sel_index]),(self.x[sel_index:],self.y[sel_index:] )
 
+def test():
+    c = CYShare()
+    c.dataload(True)
+    coll = datacollector(c)
+    coll.getcomb_info()
+    return coll
+
+if __name__ == '__main__':
+    coll = test()
+    st_hist = coll.get_st_hist()
+    print(st_hist)
 
 

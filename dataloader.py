@@ -113,11 +113,6 @@ class CYShare ( dataloader ):
             for y in ['ssid','esid']:
                 self.sel = self.sel | (self.dt['tp'][y] == x)
         self.dt['tp'] = self.dt['tp'][~self.sel]
-def test():
-    c = CYShare()
-    c.dataload(restore=True)
-    coll = datacollector(c)
-    coll.getcomb_info()
 
 if __name__ == '__main__':
     cy = CYShare()
