@@ -19,9 +19,9 @@ def regression_models():
                                     max_depth=1, random_state=0, loss='ls')
 	randforst = RandomForestRegressor(max_depth=2, random_state=0)
 	nn = MLPRegressor(
-    hidden_layer_sizes=(128,),  activation='relu', solver='adam', alpha=0.001, batch_size='auto',
-    learning_rate='constant', learning_rate_init=0.01, power_t=0.5, max_iter=1000, shuffle=True,
-    random_state=9, tol=0.0001, verbose=False, warm_start=False, momentum=0.9, nesterovs_momentum=True,
+    hidden_layer_sizes=(128,32),  activation='relu', solver='adam', alpha=0.001, batch_size='auto',
+    learning_rate='adaptive', learning_rate_init=0.01, power_t=0.5, max_iter=100000, shuffle=True,
+    random_state=9, tol=0.0000000001, verbose=True, warm_start=False, momentum=0.9, nesterovs_momentum=True,
     early_stopping=False, validation_fraction=0.1, beta_1=0.9, beta_2=0.999, epsilon=1e-08)
 	return nn
 
@@ -37,8 +37,6 @@ def save_model(model, save_dir, model_name):
     print('Saved trained model')
 
 
-def evaluate(pred,tst_y):
-    return np.sum( (tst_y-pred)**2)/len(pred)
 if __name__ =='__main__':
     # Load the diabetes dataset
     dataset= task1_hist()
@@ -53,7 +51,7 @@ if __name__ =='__main__':
     # Make predictions using the testing set
     pred_y = regr.predict(tst_x)
 
-    score = evaluate(pred_y, tst_y)
+    score = regr.score(tst_x, tst_y)
     print( score)
     plt.scatter ( tst_y,pred_y  , color = 'black')
     plt.ylabel('predicted frequency')

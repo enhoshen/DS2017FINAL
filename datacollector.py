@@ -151,10 +151,11 @@ class  datacollector():
         self.df_tp['birth']=self.df_tp['birth'].apply(lambda x : 2015-x if x != 0 else np.random.randint(18,35) ) 
     
     def get_st_hist (self):
+        '''
         if os.path.exists(self.st_hist_path):
             self.st_hist = pd.read_json(self.st_hist_path, encoding='utf8')
             return self.st_hist
-        
+        '''
         st_num , mth_num = self.st_date_range()
         st = datetime.date(*self.df_wt['wdate'][0])
         def mth_offset(x):
@@ -335,7 +336,7 @@ class task1 ( taskloader):
 
 class task1_hist ( taskloader):
     def __init__ (self):
-        self.trainperc=0.5
+        self.trainperc=0.95
         self.parseflag=0
         self.dir = './data/task1_hist/'
         
@@ -345,7 +346,9 @@ class task1_hist ( taskloader):
         c = dl.CYShare()
         c.dataload(True)
         self.coll=datacollector(c)
+        self.coll.getcomb_info()
         st_hist = self.coll.get_st_hist()
+        print(st_hist.columns)
         self.y = st_hist['freq'].as_matrix()
         x = st_hist.as_matrix (columns = ['duration','tp_dist'])
         x = np.array(x[:,0] + x[:,1])
