@@ -151,11 +151,11 @@ class  datacollector():
         self.df_tp['birth']=self.df_tp['birth'].apply(lambda x : 2015-x if x != 0 else np.random.randint(18,35) ) 
     
     def get_st_hist (self):
-        '''
+        
         if os.path.exists(self.st_hist_path):
             self.st_hist = pd.read_json(self.st_hist_path, encoding='utf8')
             return self.st_hist
-        '''
+        
         st_num , mth_num = self.st_date_range()
         st = datetime.date(*self.df_wt['wdate'][0])
         def mth_offset(x):
@@ -311,9 +311,12 @@ class taskloader ():
         self.df = coll.df_tp
         self.coll = coll        
     def shuffle(self):
- 
-        np.random.shuffle(self.y)
-        np.random.shuffle(self.x)
+        self.y.shape = (self.y.shape[-1],1) 
+        z = np.concatenate( (self.x,self.y) , axis= 1)
+        np.random.shuffle(z)
+        self.y = z[:,-1]
+        self.x = z[:,:-1] 
+        
         
 class task1 ( taskloader):
     def __init__ (self):
@@ -336,7 +339,7 @@ class task1 ( taskloader):
 
 class task1_hist ( taskloader):
     def __init__ (self):
-        self.trainperc=0.95
+        self.trainperc=0.8
         self.parseflag=0
         self.dir = './data/task1_hist/'
         
@@ -354,7 +357,7 @@ class task1_hist ( taskloader):
         x = np.array(x[:,0] + x[:,1])
         x = x.tolist()
         self.x = np.array(x)
-        self.shuffle()   
+        self.shuffle()  
         sel_index = int(len(self.x)*self.trainperc)
         return ( self.x[:sel_index],self.y[:sel_index]),(self.x[sel_index:],self.y[sel_index:] )
 
@@ -369,7 +372,7 @@ class task_test(taskloader):
         self.y=self.df['freq'].as_matrix()
         self.x=self.df.as_matrix(columns = ['duration','tp_dist'])
 
-        self.shuffle()
+        #self.shuffle()
         sel_index = int(len(self.x)*self.trainperc)
         return ( self.x[:sel_index],self.y[:sel_index]),(self.x[sel_index:],self.y[sel_index:] )
 
