@@ -151,7 +151,7 @@ class  datacollector():
         self.df_tp['birth']=self.df_tp['birth'].apply(lambda x : 2015-x if x != 0 else np.random.randint(18,35) ) 
     
     def get_st_hist (self):
-        
+
         if os.path.exists(self.st_hist_path):
             self.st_hist = pd.read_json(self.st_hist_path, encoding='utf8')
             return self.st_hist
@@ -177,6 +177,7 @@ class  datacollector():
         bin_num = 20
         cols = []
         cols.extend(table.keys())
+        cols.extend(['density'])
         cols.extend(['freq'])
         self.st_hist=pd.DataFrame(index= np.arange(st_num*mth_num), columns=cols)
         idx = 0
@@ -194,18 +195,31 @@ class  datacollector():
                     for col in hist_cols:
                         for event in tmp[col].unique():
                             hist_x = tmp_y[tmp_y[col]==event]
-                            hist = np.histogram(hist_x[attr],bins=np.arange(conf[0],conf[1],(conf[1]-conf[0])/bin_num))[0]
+                            bins_arr = np.arange(conf[0],conf[1],(conf[1]-conf[0])/bin_num)
+                            hist_x = hist_x.fillna(0)
+                            hist = np.histogram(hist_x[attr], density=True, bins=bins_arr)[0]
                             hist_list.extend(hist)
                     self.st_hist[attr][idx] = hist_list
                     self.st_hist['freq'][idx] = len(tmp_y)/30.0
+                    if len(tmp_y)>0:
+                        self.st_hist['density'][idx] = tmp_y['density'].iloc[0]
+                    else:
+                        self.st_hist['density'][idx] = 0
+
                 idx+=1
+
+        for attr,conf in table.items():
+            for i in range(len(self.st_hist[attr])):
+                x = self.st_hist[attr][i]
+                newx = [0 if v is None or np.isnan(v) else v for v in x]
+                self.st_hist.set_value(i, attr, newx)
 
         self.st_hist.to_json(self.st_hist_path)
 
         return self.st_hist
             
     def attr_stat (self):
-        attr_table = ['tp_dist','duration']
+        attr_table = ['tp_dist','duration', 'meant', 'meanv']
         table = {}
         for attr in attr_table:
             std_val = self.df_tp[attr].std()
@@ -351,11 +365,12 @@ class task1_hist ( taskloader):
         self.coll=datacollector(c)
         self.coll.getcomb_info()
         st_hist = self.coll.get_st_hist()
-        print(st_hist.columns)
         self.y = st_hist['freq'].as_matrix()
-        x = st_hist.as_matrix (columns = ['duration','tp_dist'])
-        x = np.array(x[:,0] + x[:,1])
-        x = x.tolist()
+        x = st_hist.as_matrix (columns = ['duration','tp_dist','meanv','meant','density'])
+        xx = np.array(x[:,0] + x[:,1]+ x[:,2]+ x[:,3])
+        for i in range(len(xx)):
+            xx[i] = np.append(xx[i], x[i,4])
+        x = xx.tolist()
         self.x = np.array(x)
         self.shuffle()  
         sel_index = int(len(self.x)*self.trainperc)
